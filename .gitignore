@@ -1,0 +1,40 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Caching and testing
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Environments and secrets
+.env
+.venv/
+venv/
+env/
+
+# Large Models and Weights (e.g., FinBERT 438MB cache)
+models/finbert/
+models/risk_model/
+*.bin
+*.safetensors
+
+# Local SQLite databases and journals
+database/*.db
+database/*.db-wal
+database/*.db-shm
+*.db
+
+# Logs
+logs/
+*.log
+
+# Checkpoints
+checkpoints/
+
+# Raw dataset files
+data/raw/*.parquet
+data/processed/
+data/market/
+data/news/
