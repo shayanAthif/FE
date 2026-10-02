@@ -1,0 +1,40 @@
+# Core framework
+torch>=2.0.0
+transformers>=4.30.0
+tokenizers>=0.13.0
+
+# Data processing
+numpy>=1.24.0
+scipy>=1.10.0
+pandas>=2.0.0
+pyarrow>=12.0.0
+
+# NLP / ML
+scikit-learn>=1.3.0
+tqdm>=4.65.0
+
+# Configuration
+pydantic>=2.0.0
+pyyaml>=6.0
+python-dotenv>=1.0.0
+
+# Database
+# sqlite3 is built-in
+
+# Memory / system monitoring
+psutil>=5.9.0
+
+# Datasets (HuggingFace — for Phase 1 ingestion)
+datasets>=2.14.0
+huggingface-hub>=0.17.0
+
+# Dashboard (Phase 4)
+streamlit>=1.28.0
+
+# Testing
+pytest>=7.4.0
+pytest-cov>=4.1.0
+
+# Optional: faster tokenization
+sentencepiece>=0.1.99
+
