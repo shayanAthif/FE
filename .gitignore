@@ -38,3 +38,5 @@ data/raw/*.parquet
 data/processed/
 data/market/
 data/news/
+data/news_cache/
+data/sec_cache/
