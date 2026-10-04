@@ -1,0 +1,114 @@
+# Hidden Risk Analyzer Configuration
+# ================================
+# Override defaults from src/config.py by uncommenting and modifying values below.
+# All values are loaded via Pydantic validation.
+#
+# Environment variables (set via .env) take precedence over this YAML file:
+#   - SEC_USER_AGENT (default: "FinancialRiskResearch contact@research.org")
+#   - MARKET_API_KEY (optional)
+#   - NEWS_API_KEY (optional)
+
+# Dataset configuration (Phase 1)
+dataset:
+  name: "Bose345/sp500_earnings_transcripts"
+  split: "train"
+  streaming: true
+
+# Database configuration
+database:
+  path: "database/hidden_risk.db"
+  timeout_seconds: 30.0
+  wal_mode: true
+
+# Processing configuration
+processing:
+  batch_size: 16
+  max_length: 256
+  checkpoint_interval: 100
+  device: "cpu"
+
+# Risk detection weights (Phase 2)
+risk:
+  hedging_weight: 0.35
+  evasiveness_weight: 0.40
+  tone_shift_weight: 0.25
+  local_tone_window: 5
+  hedging_lexicon:
+    modals:
+      - "may"
+      - "might"
+      - "could"
+      - "would"
+    uncertainty:
+      - "potentially"
+      - "approximately"
+      - "roughly"
+      - "uncertain"
+      - "cautious"
+      - "cautiously optimistic"
+      - "depending on"
+      - "subject to"
+    hedging_phrases:
+      - "we believe"
+      - "we expect"
+      - "we anticipate"
+      - "it is difficult to say"
+      - "too early to tell"
+      - "we are evaluating"
+      - "we continue to monitor"
+      - "cannot comment"
+      - "we remain cautious"
+    deflection_phrases:
+      - "i can't comment"
+      - "cannot comment"
+      - "it is too early"
+      - "we are monitoring"
+      - "we continue to evaluate"
+      - "we will provide information later"
+      - "we are focused on the long term"
+      - "as you know"
+      - "the important thing is"
+      - "i think the key point is"
+      - "what i would say is"
+
+# Aggregation weights (Phase 2)
+aggregation:
+  average_weight: 0.60
+  top_risk_weight: 0.40
+  top_k_percentile: 0.10
+
+# Market provider configuration (Phase 3)
+market:
+  provider: "yfinance"
+  windows:
+    - 1
+    - 5
+    - 10
+    - 20
+  benchmark_symbol: "^GSPC"
+
+# Evidence provider configuration (Phase 3)
+evidence:
+  sec_rate_limit_per_sec: 10
+  minimum_evidence_score: 0.50
+  authority_weights:
+    tier_1: 1.0
+    tier_2: 0.75
+    tier_3: 0.50
+    tier_4: 0.25
+
+# Logging configuration
+logging:
+  level: "INFO"
+  log_dir: "logs"
+  log_file: "pipeline.log"
+
+# Memory configuration
+memory:
+  max_ram_gb: 12.0
+  warning_ram_gb: 10.0
+
+# SEC / API credentials (override via .env file)
+# sec_user_agent: "FinancialRiskResearch contact@research.org"
+# market_api_key: null
+# news_api_key: null

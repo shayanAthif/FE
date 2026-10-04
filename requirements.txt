@@ -38,3 +38,7 @@ pytest-cov>=4.1.0
 # Optional: faster tokenization
 sentencepiece>=0.1.99
 
+# External APIs / providers (used in Phase 3)
+yfinance>=0.2.35
+requests>=2.31.0
+
