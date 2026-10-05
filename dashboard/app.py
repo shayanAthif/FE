@@ -1,9 +1,37 @@
 import json
-import streamlit as st
-from pathlib import Path
 import sys
+from io import StringIO
+from pathlib import Path
+
+import pandas as pd
+import streamlit as st
+
 sys.path.insert(0, str(Path(__file__).parent))
 from components import data_loader
+
+
+def filter_tickers_by_query(tickers, query: str):
+    q = (query or "").strip().lower()
+    if not q:
+        return list(tickers)
+    filtered = []
+    for ticker in tickers:
+        company_name = get_company_name(ticker)
+        if q in ticker.lower() or q in company_name.lower():
+            filtered.append(ticker)
+    return filtered
+
+
+def build_risk_trend_chart(transcripts):
+    if not transcripts:
+        return None
+    df = pd.DataFrame(transcripts)
+    if df.empty or "overall_hidden_risk" not in df.columns or "date" not in df.columns:
+        return None
+    df = df[["date", "overall_hidden_risk"]].dropna().copy()
+    df["date"] = pd.to_datetime(df["date"])
+    df = df.sort_values("date")
+    return df.set_index("date")["overall_hidden_risk"]
 
 
 def main():
@@ -89,19 +117,32 @@ def show_home(tickers):
 
 def show_transcript_explorer(tickers):
     st.markdown("## Transcript Explorer")
-    
+
+    search_query = st.sidebar.text_input("Search ticker / company", value="")
+    start_date = st.sidebar.date_input("Start date", value=None)
+    end_date = st.sidebar.date_input("End date", value=None)
+
+    filtered_tickers = filter_tickers_by_query(tickers, search_query)
+    if not filtered_tickers:
+        st.warning("No company matches the current search.")
+        return
+
     selected_ticker = st.selectbox(
         "Select Company",
-        tickers,
+        filtered_tickers,
         format_func=lambda x: f"{x} - {get_company_name(x)}"
     )
-    
+
     transcripts = data_loader.get_transcripts_for_ticker(selected_ticker)
-    
+    if start_date:
+        transcripts = [t for t in transcripts if pd.to_datetime(t["date"]) >= pd.Timestamp(start_date)]
+    if end_date:
+        transcripts = [t for t in transcripts if pd.to_datetime(t["date"]) <= pd.Timestamp(end_date)]
+
     if not transcripts:
-        st.warning("No transcripts found for this company.")
+        st.warning("No transcripts found for this company in the selected date range.")
         return
-    
+
     transcript_options = [
         f"{t['date']} - Q{t['quarter']} {t['year']} (Risk: {t['overall_hidden_risk']:.1f})"
         for t in transcripts
@@ -111,44 +152,57 @@ def show_transcript_explorer(tickers):
         range(len(transcript_options)),
         format_func=lambda x: transcript_options[x]
     )
-    
+
     selected_transcript = transcripts[selected_idx]
+    trend = build_risk_trend_chart(data_loader.get_transcripts_for_ticker(selected_ticker))
+    if trend is not None:
+        st.markdown("### Risk Trend")
+        st.line_chart(trend)
     show_transcript_detail(selected_transcript['transcript_id'])
 
 
 def show_company_comparison(tickers):
     st.markdown("## Company Comparison")
-    
+
+    search_query = st.sidebar.text_input("Compare search", value="")
+    filtered_tickers = filter_tickers_by_query(tickers, search_query)
     selected_tickers = st.multiselect(
         "Select companies to compare",
-        tickers,
-        default=tickers[:3] if len(tickers) >= 3 else tickers,
+        filtered_tickers,
+        default=filtered_tickers[:3] if len(filtered_tickers) >= 3 else filtered_tickers,
         format_func=lambda x: f"{x} - {get_company_name(x)}"
     )
-    
+
     if not selected_tickers:
         st.info("Select at least one company to compare.")
         return
-    
+
     comparison = data_loader.get_ticker_comparison(selected_tickers)
-    
-    st.markdown("### Risk Comparison")
-    for t in selected_tickers:
-        t_data = [r for r in comparison if r['ticker'] == t]
-        if t_data:
-            latest = t_data[0]
-            st.metric(
-                f"{t} - Latest Call (Risk: {latest['overall_hidden_risk']:.1f})",
-                f"Q{latest['quarter']} {latest['year']}",
-                delta=f"Risk: {latest['overall_hidden_risk']:.1f}"
-            )
-    
-    st.markdown("### Detailed Comparison")
-    import pandas as pd
-    df = pd.DataFrame(comparison)
-    st.dataframe(
-        df[['ticker', 'date', 'overall_hidden_risk', 'hedging_avg', 'evasiveness_avg', 'tone_shift_avg']]
-    )
+
+    if comparison:
+        df = pd.DataFrame(comparison)
+        st.markdown("### Risk Comparison")
+        latest_per_ticker = df.sort_values("date").groupby("ticker", as_index=False).tail(1)
+        st.dataframe(latest_per_ticker[["ticker", "date", "overall_hidden_risk", "hedging_avg", "evasiveness_avg", "tone_shift_avg"]])
+
+        st.markdown("### Risk Trend")
+        trend_df = latest_per_ticker[["ticker", "date", "overall_hidden_risk"]].copy()
+        trend_df["date"] = pd.to_datetime(trend_df["date"])
+        st.line_chart(trend_df.set_index("date")["overall_hidden_risk"], x=None)
+
+        st.markdown("### Detailed Comparison")
+        st.dataframe(
+            df[['ticker', 'date', 'overall_hidden_risk', 'hedging_avg', 'evasiveness_avg', 'tone_shift_avg']].sort_values(['ticker', 'date'])
+        )
+
+        csv_buffer = StringIO()
+        df.to_csv(csv_buffer, index=False)
+        st.download_button(
+            label="Download comparison CSV",
+            data=csv_buffer.getvalue(),
+            file_name="company_risk_comparison.csv",
+            mime="text/csv",
+        )
 
 
 def show_about():
@@ -235,8 +289,9 @@ def show_transcript_detail(transcript_id: str):
     
     # Q&A vs Prepared comparison
     st.markdown("### Q&A vs Prepared Remarks")
-    qa_sentences = [s for s in sentences if s.get('section') == 'Q&A']
-    prepared_sentences = [s for s in sentences if s.get('section') == 'Prepared Remarks']
+    section_normalizer = lambda value: (value or '').strip().lower().replace(' ', '_')
+    qa_sentences = [s for s in sentences if section_normalizer(s.get('section')) in {'q_and_a', 'qa', 'q&a'}]
+    prepared_sentences = [s for s in sentences if section_normalizer(s.get('section')) == 'prepared_remarks']
     
     cols = st.columns(2)
     with cols[0]:

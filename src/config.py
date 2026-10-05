@@ -98,6 +98,10 @@ class MemoryConfig(BaseModel):
     warning_ram_gb: float = 10.0
 
 
+class ClaimsConfig(BaseModel):
+    max_claims_per_transcript: int = 20
+
+
 class AppConfig(BaseModel):
     dataset: DatasetConfig = Field(default_factory=DatasetConfig)
     database: DatabaseConfig = Field(default_factory=DatabaseConfig)
@@ -108,6 +112,7 @@ class AppConfig(BaseModel):
     evidence: EvidenceConfig = Field(default_factory=EvidenceConfig)
     logging: LoggingConfig = Field(default_factory=LoggingConfig)
     memory: MemoryConfig = Field(default_factory=MemoryConfig)
+    claims: ClaimsConfig = Field(default_factory=ClaimsConfig)
 
     # SEC / API credentials read from environment
     sec_user_agent: str = Field(default_factory=lambda: os.getenv("SEC_USER_AGENT", "FinancialRiskResearch contact@research.org"))

@@ -6,15 +6,19 @@ from typing import Dict, List, Optional
 from datetime import datetime
 
 
+from src.database import get_db_manager
+
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 DB_PATH = PROJECT_ROOT / "database" / "hidden_risk.db"
 
 
 def get_connection():
-    """Get a database connection."""
-    conn = sqlite3.connect(str(DB_PATH))
-    conn.row_factory = sqlite3.Row
-    return conn
+    """Get a database connection, initializing schema if DB file does not exist yet."""
+    mgr = get_db_manager(DB_PATH)
+    if not DB_PATH.exists():
+        mgr.init_database()
+    return mgr.get_connection()
+
 
 
 def get_tickers() -> List[str]:

@@ -27,6 +27,8 @@ from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 
+from src.database import get_db_manager
+
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 DB_PATH = PROJECT_ROOT / "database" / "hidden_risk.db"
 ANNOTATION_DIR = PROJECT_ROOT / "data" / "annotations"
@@ -42,6 +44,8 @@ EXPORT_COLUMNS = [
     "auto_evasiveness_score",  # from Phase 2 risk_scores
     "auto_hedging_score",
     "auto_hidden_risk_score",
+    "evaluation_type",         # 'human' or 'synthetic'
+    "annotator_id",            # annotator identifier for multi-annotator agreement
     # human label columns — blank on export, filled on import
     "label_evasive",           # 0/1/2
     "label_hedging",           # 0/1 (optional)
@@ -55,9 +59,12 @@ EVASIVE_THRESHOLDS = (20.0, 50.0)   # <20 → 0, 20-50 → 1, >50 → 2
 
 
 def _get_connection() -> sqlite3.Connection:
-    conn = sqlite3.connect(str(DB_PATH))
-    conn.row_factory = sqlite3.Row
-    return conn
+    """Get a database connection, ensuring directory and schema exist."""
+    mgr = get_db_manager(DB_PATH)
+    if not DB_PATH.exists():
+        mgr.init_database()
+    return mgr.get_connection()
+
 
 
 def sample_qa_for_annotation(
@@ -243,6 +250,8 @@ def build_synthetic_annotations(rows: List[Dict]) -> List[Dict]:
             noisy_label = auto_label
 
         record = dict(row)
+        record["evaluation_type"] = "synthetic"
+        record["annotator_id"] = "synthetic_generator"
         record["label_evasive"] = noisy_label
         record["label_hedging"] = 1 if (row.get("auto_hedging_score") or 0) > 25 else 0
         record["label_topic_avoidance"] = 1 if noisy_label >= 1 else 0
@@ -250,6 +259,38 @@ def build_synthetic_annotations(rows: List[Dict]) -> List[Dict]:
         labeled.append(record)
 
     return labeled
+
+
+def compute_cohens_kappa(
+    rater1_labels: List[int],
+    rater2_labels: List[int],
+    n_classes: int = 3,
+) -> Dict[str, float]:
+    """
+    Calculate Cohen's Kappa and percentage agreement between two annotators.
+    """
+    if len(rater1_labels) != len(rater2_labels) or len(rater1_labels) == 0:
+        return {"cohens_kappa": 0.0, "observed_agreement": 0.0, "expected_agreement": 0.0}
+
+    n = len(rater1_labels)
+    # Observed agreement
+    agreements = sum(1 for a, b in zip(rater1_labels, rater2_labels) if a == b)
+    po = agreements / n
+
+    # Expected agreement by chance
+    pe = 0.0
+    for c in range(n_classes):
+        p1_c = sum(1 for a in rater1_labels if a == c) / n
+        p2_c = sum(1 for b in rater2_labels if b == c) / n
+        pe += p1_c * p2_c
+
+    kappa = (po - pe) / (1.0 - pe) if (1.0 - pe) > 1e-6 else 1.0
+
+    return {
+        "cohens_kappa": round(kappa, 4),
+        "observed_agreement": round(po, 4),
+        "expected_agreement": round(pe, 4),
+    }
 
 
 def _safe_int(v: str) -> Optional[int]:
@@ -264,3 +305,4 @@ def _safe_float(v: str) -> Optional[float]:
         return float(v) if v.strip() else None
     except (ValueError, AttributeError):
         return None
+

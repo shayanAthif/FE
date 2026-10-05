@@ -14,11 +14,16 @@ from pathlib import Path
 from typing import List, Optional
 import numpy as np
 import pandas as pd
-import yfinance as yf
+
+try:
+    import yfinance as yf
+except ImportError:
+    yf = None
 
 from src.config import PROJECT_ROOT, get_config
 from src.logger import get_logger
 from src.providers.base import BaseMarketProvider, MarketReaction
+
 
 logger = get_logger("market_provider")
 

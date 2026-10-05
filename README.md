@@ -19,3 +19,33 @@ Production-quality research prototype analyzing S&P 500 earnings-call transcript
 - **Phase 5**: Validation & Empirical Analytics.
 - **Phase 6**: Scale Testing (2,000 Transcripts).
 - **Phase 7**: Full S&P 500 Dataset Execution.
+
+## Quickstart
+
+```powershell
+# Local fixture-based pipeline run
+python scripts/run_pipeline.py --stage all --source jsonl --local-path data/sample_transcripts.jsonl --force
+
+# Phase 5 validation
+python scripts/run_phase5.py --limit 20 --skip-annotation
+
+# Launch the dashboard
+streamlit run dashboard/app.py
+
+# Benchmark the pipeline at scale
+python scripts/benchmark_pipeline.py --transcripts 10 --source jsonl --local-path data/sample_transcripts.jsonl
+```
+
+## Current Status
+
+The project is validated through Phase 5 and is ready for Phase 6 scale testing once the user confirms the next checkpoint. The codebase includes:
+- deterministic fixture ingest for local validation
+- full DB-backed pipeline stages
+- dashboard explorer/filter/export flows
+- validation/report generation
+- benchmark harness for timing and memory capture
+
+## Notes
+
+- The sample JSONL fixture in `data/sample_transcripts.jsonl` is intended for offline validation and smoke tests.
+- Real dataset execution should continue with checkpoints and memory monitoring to stay under the configured RAM budget.

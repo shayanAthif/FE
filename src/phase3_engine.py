@@ -48,7 +48,10 @@ from src.providers.sec.sec_provider import SecProvider
 logger = get_logger("phase3_engine")
 JOB_NAME = "phase3_verification"
 
-# Max claims extracted per transcript to control API rate pressure
+# Max claims extracted per transcript to control API rate pressure.
+# Purpose: prevents unbounded memory growth and API quota exhaustion during
+# large-scale runs.  Increase with caution.
+# Configure via config.yaml:  claims.max_claims_per_transcript: 20
 MAX_CLAIMS_PER_TRANSCRIPT = 20
 # Evidence search window: ±180 days around call for SEC filings, post-call for news
 SEC_WINDOW_DAYS_BEFORE = 180
@@ -74,29 +77,79 @@ class Phase3Engine:
         self.news_provider   = NewsProvider()
         self.market_provider = MarketProvider()
 
+        # Max claims per transcript (configurable; falls back to module constant).
+        # Read from config.claims.max_claims_per_transcript when present.
+        cfg_claims = getattr(self.cfg, "claims", None)
+        self.max_claims = (
+            getattr(cfg_claims, "max_claims_per_transcript", None)
+            or MAX_CLAIMS_PER_TRANSCRIPT
+        )
+
     # ─────────────────────────────────────────────────────────────────────
     # DB helpers
     # ─────────────────────────────────────────────────────────────────────
 
-    def _get_pending_transcripts(self, limit: Optional[int]) -> List[Dict]:
+    def _get_pending_transcripts(
+        self,
+        limit: Optional[int],
+        force_reprocess: bool = False,
+    ) -> List[Dict]:
+        """
+        Return transcripts that still need Phase 3 processing.
+
+        force_reprocess=False (default / resume mode):
+            Transcripts that already have at least one claim in the claims
+            table are *excluded* — they have already been processed and will
+            be skipped (standard checkpoint/resume behaviour).
+
+        force_reprocess=True (--force flag):
+            ALL transcripts are returned so every transcript is reprocessed.
+            Existing claims/evidence/verification data for each transcript
+            will be deleted before reinserting (see _delete_existing_claims).
+        """
         conn = sqlite3.connect(str(PROJECT_ROOT / "database" / "hidden_risk.db"))
         conn.row_factory = sqlite3.Row
-        already_done = set(
-            r[0] for r in conn.execute("SELECT transcript_id FROM claims GROUP BY transcript_id").fetchall()
-        )
         all_trans = conn.execute(
             "SELECT transcript_id, ticker, date, company_name FROM transcripts ORDER BY date"
         ).fetchall()
+
+        if force_reprocess:
+            # Include every transcript; existing data will be wiped and replaced
+            pending = [dict(row) for row in all_trans]
+        else:
+            already_done = set(
+                r[0]
+                for r in conn.execute(
+                    "SELECT DISTINCT transcript_id FROM claims"
+                ).fetchall()
+            )
+            pending = [
+                dict(row)
+                for row in all_trans
+                if row["transcript_id"] not in already_done
+            ]
+
         conn.close()
 
-        pending = []
-        for row in all_trans:
-            if row["transcript_id"] in already_done:
-                continue
-            pending.append(dict(row))
-            if limit and len(pending) >= limit:
-                break
+        if limit:
+            pending = pending[:limit]
         return pending
+
+    def _delete_existing_claims(self, transcript_id: str) -> None:
+        """
+        Remove all existing Phase 3 data for a transcript.
+        Called only when force_reprocess=True so that reprocessing produces
+        a clean result instead of accumulating duplicate rows.
+        """
+        with self.db.transaction() as conn:
+            conn.execute(
+                "DELETE FROM market_events WHERE transcript_id = ?", (transcript_id,)
+            )
+            # evidence and verification cascade-delete when claims are deleted
+            conn.execute(
+                "DELETE FROM claims WHERE transcript_id = ?", (transcript_id,)
+            )
+
 
     def _get_sentences(self, transcript_id: str) -> List[Dict]:
         conn = sqlite3.connect(str(PROJECT_ROOT / "database" / "hidden_risk.db"))
@@ -194,23 +247,28 @@ class Phase3Engine:
     # Single transcript processing
     # ─────────────────────────────────────────────────────────────────────
 
-    def process_transcript(self, transcript: Dict) -> Dict:
+    def process_transcript(self, transcript: Dict, force_reprocess: bool = False) -> Dict:
         tid       = transcript["transcript_id"]
         ticker    = transcript.get("ticker", "")
         call_date = transcript.get("date", "")
         t0        = time.time()
 
         try:
+            # If forced, wipe existing Phase 3 data first so we get a clean rewrite
+            if force_reprocess:
+                self._delete_existing_claims(tid)
+
             # 1. Load sentences
             sentences = self._get_sentences(tid)
             if not sentences:
                 return {"transcript_id": tid, "status": "skipped_no_sentences",
                         "claims": 0, "verified": 0, "errors": 0}
 
-            # 2. Extract claims
+            # 2. Extract claims (capped at self.max_claims for memory safety)
             raw_claims = self.extractor.extract_claims_from_sentences(tid, sentences)
-            # Cap claims per transcript
-            raw_claims = raw_claims[:MAX_CLAIMS_PER_TRANSCRIPT]
+            # Sort by confidence descending so the most important claims are kept
+            raw_claims = sorted(raw_claims, key=lambda c: c.confidence, reverse=True)
+            raw_claims = raw_claims[:self.max_claims]
 
             if not raw_claims:
                 logger.debug(f"[{tid}] No claims extracted.")
@@ -306,10 +364,14 @@ def run_phase3(
     Parameters
     ----------
     limit            : process at most this many transcripts (None = all)
-    force_reprocess  : if True, re-run transcripts that already have claims
+    force_reprocess  : if True, delete and re-run transcripts that already have claims.
+                       Without this flag, already-processed transcripts are skipped
+                       (standard checkpoint/resume behaviour).
     """
     engine = Phase3Engine()
-    pending = engine._get_pending_transcripts(limit=limit)
+
+    # ── KEY FIX: pass force_reprocess so the pending list respects --force ──
+    pending = engine._get_pending_transcripts(limit=limit, force_reprocess=force_reprocess)
 
     if not pending:
         logger.info("Phase 3: No pending transcripts to process.")
@@ -318,7 +380,15 @@ def run_phase3(
                 "status_counts": {}, "market_coverage": 0, "peak_ram_gb": _ram_gb()}
 
     total = len(pending)
-    logger.info(f"Phase 3 starting: {total} transcripts to process.")
+    logger.info(
+        f"Phase 3 starting: {total} transcripts to process "
+        f"(force={force_reprocess})."
+    )
+
+    # Reset checkpoint when forcing a full rerun
+    if force_reprocess:
+        engine.ckpt.reset_checkpoint(JOB_NAME)
+    engine.ckpt.set_checkpoint(JOB_NAME, last_processed_id=None, status="IN_PROGRESS")
 
     agg = {
         "transcripts_processed": 0,
@@ -333,7 +403,8 @@ def run_phase3(
     t0_total = time.time()
 
     for i, transcript in enumerate(pending, 1):
-        result = engine.process_transcript(transcript)
+        # ── KEY FIX: pass force_reprocess to process_transcript ──
+        result = engine.process_transcript(transcript, force_reprocess=force_reprocess)
 
         if result["status"] == "ok":
             agg["transcripts_processed"] += 1
@@ -351,6 +422,13 @@ def run_phase3(
         ram = _ram_gb()
         agg["peak_ram_gb"] = max(agg["peak_ram_gb"], ram)
 
+        # Periodic checkpoint so progress is preserved on interruption
+        engine.ckpt.set_checkpoint(
+            JOB_NAME,
+            last_processed_id=transcript["transcript_id"],
+            status="IN_PROGRESS",
+        )
+
         if i % 10 == 0:
             elapsed = round(time.time() - t0_total, 0)
             logger.info(
@@ -361,7 +439,7 @@ def run_phase3(
         gc.collect()
 
     # Mark phase 3 checkpoint complete
-    engine.ckpt.set_checkpoint(JOB_NAME, "all", "COMPLETED")
+    engine.ckpt.mark_completed(JOB_NAME)
 
     agg["total_elapsed_s"] = round(time.time() - t0_total, 1)
     logger.info(
@@ -370,4 +448,5 @@ def run_phase3(
         f"| Verified={agg['claims_verified']} | Market={agg['market_coverage']}"
     )
     return agg
+
 

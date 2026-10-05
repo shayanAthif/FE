@@ -65,44 +65,52 @@ OUTPUTS_DIR.mkdir(parents=True, exist_ok=True)
 
 def load_verification_stats() -> pd.DataFrame:
     """Load verification status breakdown from DB."""
-    import sqlite3
-
+    from src.database import get_db_manager
     db_path = PROJECT_ROOT / "database" / "hidden_risk.db"
-    conn = sqlite3.connect(str(db_path))
-    df = pd.read_sql_query("""
-        SELECT
-            v.status,
-            COUNT(*) AS n_claims,
-            ROUND(AVG(v.confidence), 4) AS avg_confidence,
-            t.ticker,
-            t.date
-        FROM verification v
-        JOIN claims c ON v.claim_id = c.claim_id
-        JOIN transcripts t ON c.transcript_id = t.transcript_id
-        GROUP BY t.ticker, t.date, v.status
-        ORDER BY t.date, t.ticker
-    """, conn)
-    conn.close()
+    mgr = get_db_manager(db_path)
+    if not db_path.exists():
+        mgr.init_database()
+    conn = mgr.get_connection()
+    try:
+        df = pd.read_sql_query("""
+            SELECT
+                v.status,
+                COUNT(*) AS n_claims,
+                ROUND(AVG(v.confidence), 4) AS avg_confidence,
+                t.ticker,
+                t.date
+            FROM verification v
+            JOIN claims c ON v.claim_id = c.claim_id
+            JOIN transcripts t ON c.transcript_id = t.transcript_id
+            GROUP BY t.ticker, t.date, v.status
+            ORDER BY t.date, t.ticker
+        """, conn)
+    finally:
+        conn.close()
     return df
 
 
 def load_verification_summary() -> pd.DataFrame:
     """Aggregated verification summary."""
-    import sqlite3
-
+    from src.database import get_db_manager
     db_path = PROJECT_ROOT / "database" / "hidden_risk.db"
-    conn = sqlite3.connect(str(db_path))
-    df = pd.read_sql_query("""
-        SELECT
-            v.status,
-            COUNT(*) AS n_claims,
-            ROUND(AVG(v.confidence), 4) AS avg_confidence,
-            ROUND(100.0 * COUNT(*) / SUM(COUNT(*)) OVER (), 2) AS pct_total
-        FROM verification v
-        GROUP BY v.status
-        ORDER BY n_claims DESC
-    """, conn)
-    conn.close()
+    mgr = get_db_manager(db_path)
+    if not db_path.exists():
+        mgr.init_database()
+    conn = mgr.get_connection()
+    try:
+        df = pd.read_sql_query("""
+            SELECT
+                v.status,
+                COUNT(*) AS n_claims,
+                ROUND(AVG(v.confidence), 4) AS avg_confidence,
+                ROUND(100.0 * COUNT(*) / SUM(COUNT(*)) OVER (), 2) AS pct_total
+            FROM verification v
+            GROUP BY v.status
+            ORDER BY n_claims DESC
+        """, conn)
+    finally:
+        conn.close()
     return df
 
 
