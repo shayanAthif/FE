@@ -8,7 +8,7 @@ from datetime import datetime
 
 from src.database import get_db_manager
 
-PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DB_PATH = PROJECT_ROOT / "database" / "hidden_risk.db"
 
 

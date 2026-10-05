@@ -49,3 +49,41 @@ The project is validated through Phase 5 and is ready for Phase 6 scale testing 
 
 - The sample JSONL fixture in `data/sample_transcripts.jsonl` is intended for offline validation and smoke tests.
 - Real dataset execution should continue with checkpoints and memory monitoring to stay under the configured RAM budget.
+
+## Project documents
+
+- Handoff checklist: [TODO.md](TODO.md)
+- Phase reports: [docs/reports/](docs/reports/)
+
+## End-to-end server handoff
+
+From the repository root, install dependencies and initialize the database:
+
+```powershell
+python -m pip install -r requirements.txt
+python scripts/run_pipeline.py --stage all --limit 10
+```
+
+Run the scale gate before processing the full source:
+
+```powershell
+python scripts/run_phase6.py --limit 2000 --batch-size 4
+```
+
+Review `outputs/phase6_scale_report.json`. Continue only if the return code,
+resume check, and RAM budget checks pass. Then run the full available dataset:
+
+```powershell
+python scripts/run_phase7.py --batch-size 4
+```
+
+Phase 7 streams the configured Hugging Face dataset and resumes from the
+existing SQLite checkpoints after interruption. The generated report is
+`outputs/phase7_full_dataset_report.json`. Start the dashboard after processing:
+
+```powershell
+streamlit run dashboard\app.py
+```
+
+Use `--source jsonl --local-path <file>` for a local JSONL dataset. Keep API
+credentials in `.env`; never commit that file or provider keys.
