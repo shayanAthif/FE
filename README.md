@@ -1,89 +1,107 @@
-# FE
+# AI-Powered Hidden Risk Earnings Call Analyzer
 
-## AI-Powered "Hidden Risk" Earnings Call Analyzer
-### with Real-World Financial and News Fact Verification
+An interpretable research tool for analyzing earnings-call transcripts and
+identifying language patterns that may indicate elevated financial risk.
 
-Production-quality research prototype analyzing S&P 500 earnings-call transcripts to detect potentially concealed financial risk signals in executive language.
+The system combines linguistic analysis with independent evidence and market
+outcome data. It does not label executives as deceptive, provide trading
+recommendations, or treat a stock-price movement as proof that a statement was
+false.
 
-### Core Signals
-1. **Hedging / Uncertainty**: Lexical patterns, modal verbs, qualifier density, and forward-looking caveats.
-2. **Evasiveness / Topic Avoidance**: Semantic similarity between questions and answers, deflection indicators, and non-numeric responses to quantitative inquiries.
-3. **Tone Shifts**: Abrupt local sentiment shifts (using ProsusAI/FinBERT) and prepared remarks vs. Q&A divergence.
+## What it analyzes
 
-### Implementation Phases
-- **Phase 0**: Architecture, Configuration, Database Schema, and Testing Infrastructure.
-- **Phase 1**: Ingestion & Preprocessing Pipeline (Transcripts parsing, sentence segmentation, speaker role detection, and Q&A pairing).
-- **Phase 2**: Linguistic Risk Engine (FinBERT inference, tone shift, evasiveness, hedging detectors, and multi-level Hidden Risk Score aggregation).
-- **Phase 3**: Real-World Verification (SEC EDGAR, market outcome correlation, and news retrieval).
-- **Phase 4**: Interactive Streamlit Dashboard.
-- **Phase 5**: Validation & Empirical Analytics.
-- **Phase 6**: Scale Testing (2,000 Transcripts).
-- **Phase 7**: Full S&P 500 Dataset Execution.
+- **Hedging and uncertainty** — modal verbs, qualifiers, and forward-looking
+  caveats.
+- **Evasiveness and topic avoidance** — question-answer relevance, deflection
+  patterns, and non-numeric responses to quantitative questions.
+- **Tone shifts** — local sentiment changes and differences between prepared
+  remarks and Q&A responses.
+- **Claim verification** — comparisons with SEC filings, news, and market data.
+- **Market outcomes** — post-call returns, volatility, and benchmark-relative
+  performance.
 
-## Quickstart
+Every result is designed to remain traceable to the source transcript,
+sentence, extracted claim, evidence item, and contributing risk features.
 
-```powershell
-# Local fixture-based pipeline run
-python scripts/run_pipeline.py --stage all --source jsonl --local-path data/sample_transcripts.jsonl --force
+## Project structure
 
-# Phase 5 validation
-python scripts/run_phase5.py --limit 20 --skip-annotation
+- `src/` — ingestion, preprocessing, scoring, verification, and validation
+  logic
+- `dashboard/` — Streamlit analyst interface
+- `scripts/` — command-line tools for processing, validation, and benchmarking
+- `database/` — SQLite database containing processed results
+- `outputs/` — generated analysis and validation outputs
+- `docs/reports/` — project reports and technical documentation
+- `tests/` — automated tests
 
-# Launch the dashboard
-streamlit run dashboard/app.py
+## Setup
 
-# Benchmark the pipeline at scale
-python scripts/benchmark_pipeline.py --transcripts 10 --source jsonl --local-path data/sample_transcripts.jsonl
-```
-
-## Current Status
-
-The project is validated through Phase 5 and is ready for Phase 6 scale testing once the user confirms the next checkpoint. The codebase includes:
-- deterministic fixture ingest for local validation
-- full DB-backed pipeline stages
-- dashboard explorer/filter/export flows
-- validation/report generation
-- benchmark harness for timing and memory capture
-
-## Notes
-
-- The sample JSONL fixture in `data/sample_transcripts.jsonl` is intended for offline validation and smoke tests.
-- Real dataset execution should continue with checkpoints and memory monitoring to stay under the configured RAM budget.
-
-## Project documents
-
-- Handoff checklist: [TODO.md](TODO.md)
-- Phase reports: [docs/reports/](docs/reports/)
-
-## End-to-end server handoff
-
-From the repository root, install dependencies and initialize the database:
+From the repository root:
 
 ```powershell
 python -m pip install -r requirements.txt
-python scripts/run_pipeline.py --stage all --limit 10
 ```
 
-Run the scale gate before processing the full source:
+For external evidence providers, copy `.env.example` to `.env` and configure
+the relevant credentials. Keep `.env` private and do not commit provider keys.
 
-```powershell
-python scripts/run_phase6.py --limit 2000 --batch-size 4
-```
+## Running the dashboard
 
-Review `outputs/phase6_scale_report.json`. Continue only if the return code,
-resume check, and RAM budget checks pass. Then run the full available dataset:
-
-```powershell
-python scripts/run_phase7.py --batch-size 4
-```
-
-Phase 7 streams the configured Hugging Face dataset and resumes from the
-existing SQLite checkpoints after interruption. The generated report is
-`outputs/phase7_full_dataset_report.json`. Start the dashboard after processing:
+The dashboard reads processed results from the SQLite database:
 
 ```powershell
 streamlit run dashboard\app.py
 ```
 
-Use `--source jsonl --local-path <file>` for a local JSONL dataset. Keep API
-credentials in `.env`; never commit that file or provider keys.
+Open `http://localhost:8501` in a browser. The interface includes:
+
+- Overview metrics
+- Transcript exploration
+- Sentence-level risk explanations
+- Claim verification and evidence
+- Market reactions and outcomes
+- Company comparison
+
+## Running the pipeline
+
+The default data source is the configured Hugging Face dataset. Processing is
+streamed and persisted incrementally so that work can resume after an
+interruption:
+
+```powershell
+python scripts/run_pipeline.py --stage all
+```
+
+For an offline smoke test using the included sample data:
+
+```powershell
+python scripts/run_pipeline.py --stage all `
+  --source jsonl `
+  --local-path data/sample_transcripts.jsonl `
+  --limit 10
+```
+
+Useful commands:
+
+```powershell
+python scripts/run_phase5.py --skip-annotation
+python scripts/benchmark_pipeline.py --transcripts 10 `
+  --source jsonl `
+  --local-path data/sample_transcripts.jsonl
+python -m pytest -q
+```
+
+## Data and research notes
+
+- The system is a research prototype, not financial advice.
+- Linguistic risk, factual verification, and market outcomes are separate
+  signals and should not be conflated.
+- Statistical relationships are observational and do not establish causation.
+- Validation results based on synthetic labels should not be interpreted as
+  human-annotated ground truth.
+- External data availability, API limits, and cache state can affect results.
+
+## Documentation
+
+- Project checklist: [TODO.md](TODO.md)
+- Reports: [docs/reports/](docs/reports/)
