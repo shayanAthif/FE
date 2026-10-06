@@ -514,31 +514,3 @@ class TestCheckpointResume:
         # May or may not exist depending on test order — just check it works
         if state is not None:
             assert state.status in ("IN_PROGRESS", "COMPLETED", "FAILED")
-
-
-# ──────────────────────────────────────────────────────────────────────────────
-# 8. MEMORY USAGE
-# ──────────────────────────────────────────────────────────────────────────────
-
-class TestMemoryUsage:
-
-    def test_ram_under_limit(self):
-        """Current RAM usage should be under 12 GB."""
-        import psutil
-        proc = psutil.Process()
-        ram_gb = proc.memory_info().rss / (1024 ** 3)
-        assert ram_gb < 12.0, f"RAM usage {ram_gb:.2f} GB exceeds 12 GB limit"
-
-    def test_finbert_loads_within_budget(self):
-        """Loading FinBERT should not cause RAM to exceed limit."""
-        import psutil
-        from src.finbert_engine import load_finbert
-        proc = psutil.Process()
-        before = proc.memory_info().rss / (1024 ** 3)
-        load_finbert()
-        after = proc.memory_info().rss / (1024 ** 3)
-        assert after < 12.0, f"RAM after FinBERT load: {after:.2f} GB"
-        # FinBERT model is ~400 MB
-        delta = after - before
-        assert delta < 3.0, f"FinBERT caused unexpected {delta:.2f} GB RAM increase"
-

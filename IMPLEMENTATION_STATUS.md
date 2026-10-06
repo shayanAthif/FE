@@ -20,7 +20,7 @@ python scripts/run_pipeline.py --stage all --source jsonl \
 | Phase 1 (Ingest) | 3 | 30 sentences, 3 QA pairs | 0.34 GB | 0.6s |
 | Phase 2 (Risk) | 3 | Scored, FinBERT ran | 0.96 GB | ~116s |
 | Phase 3 (Verify) | 3 | 9 claims, 9 verified | 1.30 GB | ~36s |
-| **Total** | 3 | All stages complete | **1.30 GB peak** (budget: 12 GB) | **152.7s** |
+| **Total** | 3 | All stages complete | **1.30 GB peak observed** | **152.7s** |
 
 ---
 

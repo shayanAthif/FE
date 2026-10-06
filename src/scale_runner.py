@@ -116,7 +116,6 @@ def run_pipeline_monitored(
         "returncode": child.returncode,
         "elapsed_seconds": round(elapsed, 2),
         "peak_ram_gb": round(peak_ram, 3),
-        "ram_budget_gb": get_config().memory.max_ram_gb,
         "database_size_before_bytes": before_size,
         "database_size_after_bytes": after_size,
         "database_size_delta_bytes": after_size - before_size,

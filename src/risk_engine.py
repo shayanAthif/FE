@@ -395,8 +395,6 @@ class LinguisticRiskEngine:
 
         for i, tid in enumerate(pending):
             ram = _ram_gb()
-            if ram > self.cfg.memory.warning_ram_gb:
-                logger.warning(f"RAM usage at {ram:.2f} GB — approaching limit.")
 
             try:
                 result = self._process_transcript(tid)
@@ -477,4 +475,3 @@ def run_phase2(
     """
     engine = LinguisticRiskEngine(db_path=db_path, batch_size=batch_size)
     return engine.run(limit=limit, force_reprocess=force_reprocess)
-

@@ -93,11 +93,6 @@ class LoggingConfig(BaseModel):
     log_file: str = "pipeline.log"
 
 
-class MemoryConfig(BaseModel):
-    max_ram_gb: float = 12.0
-    warning_ram_gb: float = 10.0
-
-
 class ClaimsConfig(BaseModel):
     max_claims_per_transcript: int = 20
 
@@ -111,7 +106,6 @@ class AppConfig(BaseModel):
     market: MarketConfig = Field(default_factory=MarketConfig)
     evidence: EvidenceConfig = Field(default_factory=EvidenceConfig)
     logging: LoggingConfig = Field(default_factory=LoggingConfig)
-    memory: MemoryConfig = Field(default_factory=MemoryConfig)
     claims: ClaimsConfig = Field(default_factory=ClaimsConfig)
 
     # SEC / API credentials read from environment

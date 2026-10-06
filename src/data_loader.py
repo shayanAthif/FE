@@ -571,11 +571,9 @@ def run_ingestion(
     last_tid: Optional[str] = None
 
     for idx, raw_record in enumerate(iter_transcripts(source, local_path, limit)):
-        # RAM guard
+        # Record usage for observability; the server has no application RAM limit.
         ram_gb = proc.memory_info().rss / (1024 ** 3)
         stats["peak_ram_gb"] = max(stats["peak_ram_gb"], ram_gb)
-        if ram_gb > cfg.memory.warning_ram_gb:
-            logger.warning(f"RAM at {ram_gb:.2f} GB — approaching limit.")
 
         result = load_single_transcript(
             raw_record,

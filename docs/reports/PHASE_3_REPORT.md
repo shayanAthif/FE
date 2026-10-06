@@ -87,7 +87,7 @@ Transcripts (SQLite)
 | **News Evidence Items** | 5,927 items |
 | **Market Reaction Coverage** | 103 transcripts (100% coverage of active calls) |
 | **Processing Time** | ~700 seconds (~11.6 minutes total) |
-| **Peak RAM Consumption** | 0.23 GB (target was < 12 GB) |
+| **Peak RAM Consumption** | 0.23 GB (observed, no application limit) |
 | **Execution Errors** | 0 errors |
 
 ---

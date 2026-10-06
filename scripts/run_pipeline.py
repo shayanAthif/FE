@@ -34,7 +34,7 @@ sys.path.insert(0, str(PROJECT_ROOT))
 import psutil
 
 from src.checkpoint import CheckpointManager
-from src.config import get_config, load_config
+from src.config import load_config
 from src.data_loader import run_ingestion
 from src.database import get_db_manager
 from src.logger import get_logger
@@ -152,8 +152,6 @@ def main() -> int:
     args = parse_args()
     if args.config:
         load_config(args.config)
-    cfg = get_config()
-
     db = get_db_manager()
     db.init_database()
 
@@ -166,7 +164,6 @@ def main() -> int:
     print(f"  Limit      : {args.limit if args.limit is not None else 'ALL'}")
     print(f"  Force      : {force}")
     print(f"  Source     : {args.source}")
-    print(f"  Max RAM    : {cfg.memory.max_ram_gb:.1f} GB")
     print(f"  Initial RAM: {_ram_gb():.2f} GB")
     print("=" * 65 + "\n")
 
@@ -242,7 +239,7 @@ def main() -> int:
     print("PIPELINE EXECUTION COMPLETE")
     print("=" * 65)
     print(f"  Total Duration : {total_time:.1f}s")
-    print(f"  Peak RAM       : {peak_ram:.2f} GB (Budget: {cfg.memory.max_ram_gb:.1f} GB)")
+    print(f"  Peak RAM       : {peak_ram:.2f} GB")
     print("=" * 65 + "\n")
 
     return 0

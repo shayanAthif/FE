@@ -1,29 +1,29 @@
 system,market_metric,pearson_r,pearson_p,pearson_ci_lo,pearson_ci_hi,spearman_rho,spearman_p,spearman_ci_lo,spearman_ci_hi,n
-Proposed: Hidden Risk Score,1-Day Return,,,,,,,,,3
-Proposed: Hidden Risk Score,5-Day Return,,,,,,,,,3
-Proposed: Hidden Risk Score,10-Day Return,,,,,,,,,3
-Proposed: Hidden Risk Score,20-Day Return,,,,,,,,,3
-Proposed: Hidden Risk Score,5-Day Volatility,,,,,,,,,3
-Proposed: Hidden Risk Score,10-Day Volatility,,,,,,,,,3
-Proposed: Hidden Risk Score,Abnormal 5-Day Return,,,,,,,,,3
-Baseline 1: LM Lexicon,1-Day Return,,,,,,,,,3
-Baseline 1: LM Lexicon,5-Day Return,,,,,,,,,3
-Baseline 1: LM Lexicon,10-Day Return,,,,,,,,,3
-Baseline 1: LM Lexicon,20-Day Return,,,,,,,,,3
-Baseline 1: LM Lexicon,5-Day Volatility,,,,,,,,,3
-Baseline 1: LM Lexicon,10-Day Volatility,,,,,,,,,3
-Baseline 1: LM Lexicon,Abnormal 5-Day Return,,,,,,,,,3
-Baseline 2: FinBERT (tone shift),1-Day Return,,,,,,,,,3
-Baseline 2: FinBERT (tone shift),5-Day Return,,,,,,,,,3
-Baseline 2: FinBERT (tone shift),10-Day Return,,,,,,,,,3
-Baseline 2: FinBERT (tone shift),20-Day Return,,,,,,,,,3
-Baseline 2: FinBERT (tone shift),5-Day Volatility,,,,,,,,,3
-Baseline 2: FinBERT (tone shift),10-Day Volatility,,,,,,,,,3
-Baseline 2: FinBERT (tone shift),Abnormal 5-Day Return,,,,,,,,,3
-Baseline 3: Hedging Only,1-Day Return,,,,,,,,,3
-Baseline 3: Hedging Only,5-Day Return,,,,,,,,,3
-Baseline 3: Hedging Only,10-Day Return,,,,,,,,,3
-Baseline 3: Hedging Only,20-Day Return,,,,,,,,,3
-Baseline 3: Hedging Only,5-Day Volatility,,,,,,,,,3
-Baseline 3: Hedging Only,10-Day Volatility,,,,,,,,,3
-Baseline 3: Hedging Only,Abnormal 5-Day Return,,,,,,,,,3
+Proposed: Hidden Risk Score,1-Day Return,,,,,,,,,2
+Proposed: Hidden Risk Score,5-Day Return,,,,,,,,,2
+Proposed: Hidden Risk Score,10-Day Return,,,,,,,,,2
+Proposed: Hidden Risk Score,20-Day Return,,,,,,,,,2
+Proposed: Hidden Risk Score,5-Day Volatility,,,,,,,,,2
+Proposed: Hidden Risk Score,10-Day Volatility,,,,,,,,,2
+Proposed: Hidden Risk Score,Abnormal 5-Day Return,,,,,,,,,2
+Baseline 1: LM Lexicon,1-Day Return,,,,,,,,,2
+Baseline 1: LM Lexicon,5-Day Return,,,,,,,,,2
+Baseline 1: LM Lexicon,10-Day Return,,,,,,,,,2
+Baseline 1: LM Lexicon,20-Day Return,,,,,,,,,2
+Baseline 1: LM Lexicon,5-Day Volatility,,,,,,,,,2
+Baseline 1: LM Lexicon,10-Day Volatility,,,,,,,,,2
+Baseline 1: LM Lexicon,Abnormal 5-Day Return,,,,,,,,,2
+Baseline 2: FinBERT (tone shift),1-Day Return,,,,,,,,,2
+Baseline 2: FinBERT (tone shift),5-Day Return,,,,,,,,,2
+Baseline 2: FinBERT (tone shift),10-Day Return,,,,,,,,,2
+Baseline 2: FinBERT (tone shift),20-Day Return,,,,,,,,,2
+Baseline 2: FinBERT (tone shift),5-Day Volatility,,,,,,,,,2
+Baseline 2: FinBERT (tone shift),10-Day Volatility,,,,,,,,,2
+Baseline 2: FinBERT (tone shift),Abnormal 5-Day Return,,,,,,,,,2
+Baseline 3: Hedging Only,1-Day Return,,,,,,,,,2
+Baseline 3: Hedging Only,5-Day Return,,,,,,,,,2
+Baseline 3: Hedging Only,10-Day Return,,,,,,,,,2
+Baseline 3: Hedging Only,20-Day Return,,,,,,,,,2
+Baseline 3: Hedging Only,5-Day Volatility,,,,,,,,,2
+Baseline 3: Hedging Only,10-Day Volatility,,,,,,,,,2
+Baseline 3: Hedging Only,Abnormal 5-Day Return,,,,,,,,,2

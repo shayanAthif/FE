@@ -5,7 +5,7 @@ import sqlite3
 from src.config import load_config, get_config, AppConfig
 from src.database import DatabaseManager
 from src.checkpoint import CheckpointManager
-from src.logger import setup_logger, get_current_ram_gb, check_ram_headroom
+from src.logger import setup_logger
 from src.providers.base import BaseMarketProvider, BaseNewsProvider, BaseSecProvider
 
 
@@ -23,10 +23,6 @@ def test_config_loading(sample_config: AppConfig):
     agg = sample_config.aggregation
     total_agg = agg.average_weight + agg.top_risk_weight
     assert abs(total_agg - 1.0) < 1e-4
-
-    # Memory limits
-    assert sample_config.memory.max_ram_gb == 12.0
-    assert sample_config.memory.warning_ram_gb <= sample_config.memory.max_ram_gb
 
     # Lexicon phrases present
     assert len(rw.hedging_lexicon.modals) > 0
@@ -103,8 +99,8 @@ def test_checkpoint_lifecycle(db_manager: DatabaseManager):
     assert cp_mgr.get_checkpoint("risk") is None
 
 
-def test_logger_and_memory(tmp_path):
-    """Verify structured logger writes to file and memory monitoring measures RAM."""
+def test_logger(tmp_path):
+    """Verify structured logger writes to file."""
     logger = setup_logger(name="test_logger", log_dir=tmp_path, log_file="test.log")
     logger.info("Testing architecture logger output.")
 
@@ -112,12 +108,6 @@ def test_logger_and_memory(tmp_path):
     assert log_file.exists()
     content = log_file.read_text(encoding="utf-8")
     assert "Testing architecture logger output." in content
-
-    # Test RAM tracker
-    ram_gb = get_current_ram_gb()
-    assert ram_gb > 0.0, "RAM usage should be greater than 0"
-    headroom = check_ram_headroom(logger=logger)
-    assert headroom == ram_gb
 
 
 def test_abstract_providers_cannot_be_instantiated():
@@ -130,4 +120,3 @@ def test_abstract_providers_cannot_be_instantiated():
 
     with pytest.raises(TypeError):
         BaseMarketProvider()  # type: ignore
-

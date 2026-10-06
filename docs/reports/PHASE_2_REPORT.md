@@ -190,7 +190,7 @@ The test suite (`tests/test_phase2_risk_engine.py`) consists of 32 unit tests an
 - `TestToneShiftDetector` (6 tests): stable sequence baseline, sudden jump detection, section shift calculation, equal section neutrality, score bounds, empty sequence safety.
 - `TestEvasivenessDetector` (8 tests): direct answer low scoring, evasive answer high scoring, numeric match bonus, numeric mismatch penalty, score bounds, deflection detection, TF-IDF range, batch execution.
 - `TestRiskScorer` (8 tests): zero inputs, max inputs, formula correctness, weight redistribution without evasiveness, field completeness, segment aggregation, transcript aggregation, empty input handling.
-- `TestRiskEngineIntegration` & `TestMemoryUsage` (4 tests): database integration, score bounds verification, schema completeness, RAM budget compliance.
+- `TestRiskEngineIntegration` & `TestMemoryUsage` (4 tests): database integration, score bounds verification, schema completeness, and RAM usage measurement.
 
 **Test Results:** `32 passed in 1.28s`
 

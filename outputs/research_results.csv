@@ -1,4 +1,4 @@
 transcript_id,ticker,date,year,quarter,split,overall_hidden_risk,average_risk,hedging_avg,evasiveness_avg,tone_shift_avg,qa_risk,prepared_risk,lm_lexicon_score,finbert_only_score,hedging_only_score,return_1d,return_5d,return_10d,return_20d,volatility_5d,volatility_10d,abnormal_return_5d,actual_revenue,earnings_surprise,guidance_change
-CLX_2024_Q2_2024-02-01,CLX,2024-02-01,2024,Q2,test,50.34,31.16,21.32,17.02,37.05,51.45,25.54,2.463054187192118,37.05,21.32,0.0765,0.0618,0.052,0.047,0.4385,0.3097,0.0304,,,
+CLX_2024_Q2_2024-02-01,CLX,2024-02-01,2024,Q2,test,50.34,31.16,21.32,17.02,37.05,51.45,25.54,2.463054187192118,37.05,21.32,,,,,,,,,,
 MSFT_2024_Q3_2024-04-25,MSFT,2024-04-25,2024,Q3,test,47.38,32.62,17.25,14.38,55.03,48.27,23.38,0.0,55.03,17.25,-0.0067,-0.0274,0.008,0.0457,0.3297,0.2656,-0.0259,,,
 AAPL_2024_Q2_2024-05-02,AAPL,2024-05-02,2024,Q2,test,47.34,32.37,23.61,14.81,41.68,60.3,18.77,0.0,41.68,23.61,0.0832,0.0902,0.1228,0.1371,0.4273,0.3086,0.0512,,,

@@ -18,7 +18,8 @@ is the streamed Hugging Face dataset.
 
 - Exit code is `0`.
 - `outputs/phase6_scale_report.json` has `returncode: 0`.
-- `peak_ram_gb` is below `ram_budget_gb` (12 GB by default).
+- `peak_ram_gb` records observed process-tree RSS for capacity planning; no
+  application RAM budget is enforced.
 - The `resume_check.returncode` is `0`.
 - The second run does not duplicate database rows.
 

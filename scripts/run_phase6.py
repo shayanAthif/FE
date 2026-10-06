@@ -36,7 +36,7 @@ def main() -> int:
     )
     print(f"Phase 6 return code: {report['returncode']}")
     print(f"Elapsed: {report['elapsed_seconds']}s")
-    print(f"Peak RAM: {report['peak_ram_gb']:.3f} GB / {report['ram_budget_gb']:.1f} GB")
+    print(f"Peak RAM: {report['peak_ram_gb']:.3f} GB")
     print("Report: outputs/phase6_scale_report.json")
     return int(report["returncode"])
 

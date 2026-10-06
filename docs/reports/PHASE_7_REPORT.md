@@ -23,7 +23,8 @@ python scripts/run_phase7.py --limit 100
 - Phase 6 has passed first.
 - Exit code is `0`.
 - `outputs/phase7_full_dataset_report.json` has `returncode: 0`.
-- `peak_ram_gb` remains below the configured 12 GB budget.
+- `peak_ram_gb` records observed process-tree RSS; no application RAM budget is
+  enforced.
 - The resume check succeeds without increasing counts for already-completed
   transcripts.
 - API failures are investigated from `logs/pipeline.log`; they are not silently

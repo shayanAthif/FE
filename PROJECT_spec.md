@@ -179,7 +179,7 @@ Measure:
 - failure/recovery behavior
 
 Acceptance:
-Remain within the 12 GB RAM target and resume correctly after interruption.
+Resume correctly after interruption; RAM is not application-limited.
 
 PHASE 7 — FULL DATASET
 Target:
@@ -278,7 +278,7 @@ The raw content should be retained for traceability.
 
 DO NOT load the entire dataset into RAM.
 
-The target environment can have only approximately 12 GB system RAM.
+The target server is assumed to have sufficient RAM for the workload.
 
 Use streaming/chunked processing and persistent storage.
 
@@ -303,7 +303,7 @@ The system MUST support checkpointing so that crashes or interruptions do not re
 
 Critical requirement:
 
-The application must be designed to run within a 12 GB system RAM budget.
+The application must not enforce an application-level RAM budget.
 
 Do not create giant pandas DataFrames containing the full dataset.
 
@@ -2848,7 +2848,7 @@ N. No future information leaks into the original risk score.
 
 O. The pipeline can resume after interruption.
 
-P. The first 100 transcripts can be processed within the 12 GB RAM environment.
+P. The first 100 transcripts can be processed successfully.
 
 Q. Full processing can be performed incrementally without requiring the entire corpus in memory.
 

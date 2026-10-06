@@ -23,7 +23,7 @@
 - [ ] Review `outputs/phase6_scale_report.json`.
 - [ ] Confirm the process return code is `0`.
 - [ ] Confirm the resume check return code is `0`.
-- [ ] Confirm peak RAM remains below the configured 12 GB budget.
+- [ ] Record peak RAM usage for the scale report.
 - [ ] Confirm the resume check does not duplicate database rows.
 - [ ] Investigate any provider errors in `logs/pipeline.log`.
 - [ ] Do not start Phase 7 until all Phase 6 acceptance checks pass.
@@ -34,7 +34,7 @@
 - [ ] If interrupted, rerun the same command without `--force`.
 - [ ] Review `outputs/phase7_full_dataset_report.json`.
 - [ ] Confirm the process return code is `0`.
-- [ ] Confirm peak RAM remains below the configured budget.
+- [ ] Record peak RAM usage for the full-dataset report.
 - [ ] Confirm the resume check succeeds without duplicate rows.
 - [ ] Record final transcript counts, runtime, database size, and provider failures.
 
