@@ -12,7 +12,8 @@
 dataset:
   name: "Bose345/sp500_earnings_transcripts"
   split: "train"
-  streaming: true
+  # Materialize the complete Hugging Face split in RAM before processing.
+  streaming: false
 
 # Database configuration
 database:

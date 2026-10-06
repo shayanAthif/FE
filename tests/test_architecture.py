@@ -12,7 +12,7 @@ from src.providers.base import BaseMarketProvider, BaseNewsProvider, BaseSecProv
 def test_config_loading(sample_config: AppConfig):
     """Verify master configuration loads and conforms to expected bounds and types."""
     assert sample_config.dataset.name == "Bose345/sp500_earnings_transcripts"
-    assert sample_config.dataset.streaming is True
+    assert sample_config.dataset.streaming is False
 
     # Risk weights validation
     rw = sample_config.risk

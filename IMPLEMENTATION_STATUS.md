@@ -54,7 +54,7 @@ All modules were newly implemented in this session.
 | `src/preprocessing.py` | ✅ Complete | HTML unescape, encoding norm, financial term preservation |
 | `src/segmentation.py` | ✅ Complete | Structured + raw text fallback, financial sentence splitter |
 | `src/qa_matcher.py` | ✅ Complete | FSM-based analyst→exec matching, multi-turn support |
-| `src/data_loader.py` | ✅ Complete | HuggingFace streaming + JSONL/JSON local, checkpoint/resume |
+| `src/data_loader.py` | ✅ Complete | RAM-resident HuggingFace loading + JSONL/JSON local, checkpoint/resume |
 | `data/sample_transcripts.jsonl` | ✅ Created | 3 fixture transcripts (CLX, AAPL, MSFT) for local testing |
 
 #### Key Design Decisions
@@ -64,7 +64,7 @@ All modules were newly implemented in this session.
 - **QA matching**: FSM: `WAITING_FOR_QUESTION → IN_QUESTION → IN_ANSWER`, operator bridges skipped
 - **Deduplication**: In-memory set of already-processed IDs fetched once at startup
 - **Checkpoint**: `processing_checkpoints` table, every N records (configurable via `processing.checkpoint_interval`)
-- **Memory**: One transcript at a time, explicit `gc.collect()` after each, no corpus-in-RAM
+- **Memory**: The complete Hugging Face dataset is materialized in RAM before processing; one transcript is processed at a time afterward, with explicit `gc.collect()` after each
 
 #### IDs (deterministic, stable)
 ```
@@ -298,7 +298,7 @@ The following packages were not in the original environment and were installed:
 
 ```
 yfinance==1.7.0       (required by src/providers/market/market_provider.py)
-datasets==5.0.1       (required by src/data_loader.py HuggingFace streaming)
+datasets==5.0.1       (required by src/data_loader.py HuggingFace loading)
 ```
 
 Add to `requirements.txt` if not already present.

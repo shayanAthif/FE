@@ -64,9 +64,9 @@ Open `http://localhost:8501` in a browser. The interface includes:
 
 ## Running the pipeline
 
-The default data source is the configured Hugging Face dataset. Processing is
-streamed and persisted incrementally so that work can resume after an
-interruption:
+The default data source is the configured Hugging Face dataset. The complete
+dataset is loaded into RAM before records are processed, then results are
+persisted incrementally so that work can resume after an interruption:
 
 ```powershell
 python scripts/run_pipeline.py --stage all

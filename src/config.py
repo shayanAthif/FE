@@ -16,7 +16,7 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 class DatasetConfig(BaseModel):
     name: str = "Bose345/sp500_earnings_transcripts"
     split: str = "train"
-    streaming: bool = True
+    streaming: bool = False
 
 
 class DatabaseConfig(BaseModel):

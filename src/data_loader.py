@@ -3,7 +3,8 @@ Data Loader — Phase 1
 
 Responsibilities:
   1. Load transcripts from the Hugging Face dataset (Bose345/sp500_earnings_transcripts)
-     using streaming mode so the full corpus never enters RAM.
+     with configurable loading; non-streaming mode materializes the full corpus
+     in RAM before processing begins.
   2. Normalize and validate each transcript record.
   3. Produce deterministic transcript IDs.
   4. Detect and skip duplicates.
@@ -15,7 +16,8 @@ Responsibilities:
 
 Memory strategy
 ---------------
-- One transcript is processed at a time.
+- The Hugging Face dataset is materialized in RAM when streaming is disabled.
+- One transcript is processed at a time after dataset materialization.
 - All intermediate lists (segments, sentences, qa_pairs) are released after
   each transcript's transaction commits.
 - The set of already-processed IDs is fetched once at startup and stored as
@@ -148,14 +150,15 @@ def _extract_ticker(record: Dict) -> str:
 def iter_from_huggingface(
     dataset_name: str,
     split: str = "train",
-    streaming: bool = True,
+    streaming: bool = False,
     limit: Optional[int] = None,
 ) -> Generator[Dict, None, None]:
     """
-    Stream records from a HuggingFace dataset.
+    Load records from a HuggingFace dataset.
 
-    Uses streaming mode to avoid loading the full corpus into RAM.
-    Yields raw record dicts.
+    When ``streaming`` is false, every record is copied into a list before the
+    first record is yielded. This ensures the complete dataset is resident in
+    RAM, even though the caller consumes records one at a time.
     """
     try:
         from datasets import load_dataset  # type: ignore
@@ -167,6 +170,13 @@ def iter_from_huggingface(
 
     logger.info(f"Loading dataset '{dataset_name}' (split={split}, streaming={streaming}) …")
     ds = load_dataset(dataset_name, split=split, streaming=streaming, trust_remote_code=True)
+
+    if not streaming:
+        records = [dict(record) for record in ds]
+        logger.info(
+            f"Materialized {len(records)} records from '{dataset_name}' in RAM."
+        )
+        ds = records
 
     count = 0
     for record in ds:
