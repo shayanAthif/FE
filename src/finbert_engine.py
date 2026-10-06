@@ -43,11 +43,32 @@ _label_map: Dict[int, str] = {}  # populated on load
 
 
 def _resolve_device() -> torch.device:
-    """Auto-detect GPU; fall back to CPU."""
-    if torch.cuda.is_available():
-        logger.info("FinBERT: CUDA GPU detected, using GPU.")
-        return torch.device("cuda")
-    logger.info("FinBERT: No GPU detected, using CPU.")
+    """Resolve the configured device, falling back to CPU if unavailable."""
+    configured = get_config().processing.device.strip().lower()
+    if configured == "gpu1":
+        configured = "cuda:1"
+
+    requested = torch.device(configured)
+    if requested.type == "cuda":
+        if torch.cuda.is_available():
+            device_index = requested.index if requested.index is not None else 0
+            if device_index < torch.cuda.device_count():
+                logger.info(f"FinBERT: using configured CUDA device {requested}.")
+                return requested
+            logger.warning(
+                f"FinBERT: configured CUDA device {requested} is unavailable "
+                f"(only {torch.cuda.device_count()} device(s) detected); using CPU."
+            )
+        else:
+            logger.warning(
+                f"FinBERT: configured device {requested} is unavailable; using CPU."
+            )
+    elif requested.type != "cpu":
+        raise ValueError(
+            f"Unsupported processing.device '{configured}'. Use 'cpu' or 'cuda:N'."
+        )
+
+    logger.info("FinBERT: using CPU.")
     return torch.device("cpu")
 
 
@@ -192,4 +213,3 @@ def _empty_sentiment() -> Dict:
         "neutral_prob": 0.0,
         "sentiment_label": "neutral",
     }
-

@@ -119,7 +119,7 @@ def main():
     print(f"  Limit       : {limit or 'ALL'}")
     print(f"  Batch size  : {batch_size or cfg.processing.batch_size} (FinBERT)")
     print(f"  Force       : {args.force}")
-    print(f"  Device      : CPU (CUDA not available)")
+    print(f"  Device      : {cfg.processing.device}")
     print(f"{'='*60}\n")
 
     t0 = time.time()
@@ -150,4 +150,3 @@ def main():
 
 if __name__ == "__main__":
     sys.exit(main())
-

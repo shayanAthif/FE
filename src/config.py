@@ -34,7 +34,7 @@ class ProcessingConfig(BaseModel):
     batch_size: int = 16
     max_length: int = 256
     checkpoint_interval: int = 100
-    device: str = "cpu"
+    device: str = "cuda:1"
 
 
 class HedgingLexiconConfig(BaseModel):

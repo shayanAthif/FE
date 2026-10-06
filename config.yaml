@@ -26,7 +26,7 @@ processing:
   batch_size: 16
   max_length: 256
   checkpoint_interval: 100
-  device: "cpu"
+  device: "cuda:1"
 
 # Risk detection weights (Phase 2)
 risk:
