@@ -79,6 +79,7 @@ class MarketConfig(BaseModel):
 class EvidenceConfig(BaseModel):
     sec_rate_limit_per_sec: int = 10
     minimum_evidence_score: float = 0.50
+    enable_live_news: bool = False
     authority_weights: Dict[str, float] = Field(default_factory=lambda: {
         "tier_1": 1.0,
         "tier_2": 0.75,

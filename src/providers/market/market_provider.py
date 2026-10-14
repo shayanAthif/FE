@@ -60,12 +60,17 @@ class MarketProvider(BaseMarketProvider):
             except Exception:
                 pass
 
+        if yf is None:
+            logger.warning(f"yfinance is not available; cannot download price history for {clean_ticker}")
+            return pd.DataFrame()
+
         logger.debug(f"Downloading historical price series for {clean_ticker}...")
         try:
             # Add small buffer to dates
             s = (pd.to_datetime(start_date) - timedelta(days=60)).strftime("%Y-%m-%d")
             e = (pd.to_datetime(end_date) + timedelta(days=60)).strftime("%Y-%m-%d")
-            df = yf.download(clean_ticker, start=s, end=e, progress=False)
+            download_symbol = clean_ticker.replace(".", "-")
+            df = yf.download(download_symbol, start=s, end=e, progress=False)
 
             if df.empty:
                 logger.warning(f"No price data returned for {clean_ticker}")

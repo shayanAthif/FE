@@ -20,6 +20,7 @@ from src.claim_extractor import ClaimExtractor, RawClaim
 from src.claim_normalizer import ClaimNormalizer, NormalizedClaim
 from src.temporal_filter import TemporalCategory, categorise_evidence, filter_outcome_evidence, validate_no_future_leak
 from src.fact_verifier import FactVerifier, VerificationStatus
+from src.phase3_engine import parse_call_date, Phase3Engine
 from src.providers.base import RetrievedEvidence
 from src.providers.market.market_provider import MarketProvider
 
@@ -215,3 +216,32 @@ class TestMarketProvider:
         assert "1d" in reaction.returns
         assert "5d" in reaction.returns
         assert "5d" in reaction.volatilities
+
+
+class TestParseCallDate:
+
+    def test_parse_timestamp_with_time(self):
+        dt = parse_call_date("2025-05-15 16:30:00")
+        assert dt == datetime(2025, 5, 15, 0, 0)
+        assert dt.strftime("%Y-%m-%d") == "2025-05-15"
+
+    def test_parse_date_only(self):
+        dt = parse_call_date("2025-05-15")
+        assert dt == datetime(2025, 5, 15, 0, 0)
+
+    def test_parse_iso_format(self):
+        dt = parse_call_date("2025-05-15T16:30:00")
+        assert dt == datetime(2025, 5, 15, 0, 0)
+
+    def test_parse_whitespace_handling(self):
+        dt = parse_call_date("  2025-05-15 16:30:00  ")
+        assert dt == datetime(2025, 5, 15, 0, 0)
+
+    def test_parse_empty_raises_error(self):
+        with pytest.raises(ValueError):
+            parse_call_date("")
+
+    def test_parse_invalid_raises_error(self):
+        with pytest.raises(ValueError):
+            parse_call_date("not-a-date")
+

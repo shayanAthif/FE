@@ -174,7 +174,7 @@ def _build_demo_baseline_data() -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
-def load_baseline_data() -> pd.DataFrame:
+def load_baseline_data(limit: Optional[int] = None) -> pd.DataFrame:
     """
     Load transcript-level baseline data from DB.
 
@@ -202,7 +202,8 @@ def load_baseline_data() -> pd.DataFrame:
     conn = mgr.get_connection()
 
     try:
-        ts_df = pd.read_sql_query("""
+        limit_clause = f"LIMIT {limit}" if limit else ""
+        ts_df = pd.read_sql_query(f"""
             SELECT
                 t.transcript_id, t.ticker, t.date, t.year, t.quarter,
                 ts.overall_hidden_risk,
@@ -215,38 +216,78 @@ def load_baseline_data() -> pd.DataFrame:
             FROM transcripts t
             JOIN transcript_scores ts ON t.transcript_id = ts.transcript_id
             ORDER BY t.date
+            {limit_clause}
         """, conn)
 
-        finbert_df = pd.read_sql_query("""
-            SELECT
-                rs.transcript_id,
-                AVG(rs.tone_shift_score) AS tone_shift_avg_raw,
-                COUNT(*) AS sentence_count
-            FROM risk_scores rs
-            GROUP BY rs.transcript_id
-        """, conn)
+        if ts_df.empty:
+            return _build_demo_baseline_data()
 
-        sent_df = pd.read_sql_query("""
-            SELECT s.sentence_id, s.transcript_id, s.text
-            FROM sentences s
-        """, conn)
+        tids = ts_df["transcript_id"].tolist()
+        
+        # Query sentences only for the selected transcripts (chunked)
+        sent_dfs = []
+        chunk_size = 500
+        for i in range(0, len(tids), chunk_size):
+            chunk = tids[i : i + chunk_size]
+            placeholders = ",".join("?" * len(chunk))
+            chunk_df = pd.read_sql_query(
+                f"SELECT s.sentence_id, s.transcript_id, s.text FROM sentences s WHERE s.transcript_id IN ({placeholders})",
+                conn,
+                params=chunk,
+            )
+            sent_dfs.append(chunk_df)
+        sent_df = pd.concat(sent_dfs, ignore_index=True) if sent_dfs else pd.DataFrame(columns=["sentence_id", "transcript_id", "text"])
 
-        mkt_df = pd.read_sql_query("""
-            SELECT transcript_id,
-                   return_1d, return_5d, return_10d, return_20d,
-                   volatility_5d, volatility_10d, abnormal_return_5d
-            FROM market_events
-        """, conn)
+        finbert_dfs = []
+        mkt_dfs = []
+        out_dfs = []
+        for i in range(0, len(tids), chunk_size):
+            chunk = tids[i : i + chunk_size]
+            placeholders = ",".join("?" * len(chunk))
+            f_df = pd.read_sql_query(
+                f"""
+                SELECT
+                    rs.transcript_id,
+                    AVG(rs.tone_shift_score) AS tone_shift_avg_raw,
+                    COUNT(*) AS sentence_count
+                FROM risk_scores rs
+                WHERE rs.transcript_id IN ({placeholders})
+                GROUP BY rs.transcript_id
+                """,
+                conn,
+                params=chunk,
+            )
+            finbert_dfs.append(f_df)
 
-        out_df = pd.read_sql_query("""
-            SELECT transcript_id, actual_revenue, earnings_surprise, guidance_change
-            FROM outcomes
-        """, conn)
+            m_df = pd.read_sql_query(
+                f"""
+                SELECT transcript_id,
+                       return_1d, return_5d, return_10d, return_20d,
+                       volatility_5d, volatility_10d, abnormal_return_5d
+                FROM market_events
+                WHERE transcript_id IN ({placeholders})
+                """,
+                conn,
+                params=chunk,
+            )
+            mkt_dfs.append(m_df)
+
+            o_df = pd.read_sql_query(
+                f"""
+                SELECT transcript_id, actual_revenue, earnings_surprise, guidance_change
+                FROM outcomes
+                WHERE transcript_id IN ({placeholders})
+                """,
+                conn,
+                params=chunk,
+            )
+            out_dfs.append(o_df)
+
+        finbert_df = pd.concat(finbert_dfs, ignore_index=True) if finbert_dfs else pd.DataFrame()
+        mkt_df = pd.concat(mkt_dfs, ignore_index=True) if mkt_dfs else pd.DataFrame()
+        out_df = pd.concat(out_dfs, ignore_index=True) if out_dfs else pd.DataFrame()
     finally:
         conn.close()
-
-    if ts_df.empty:
-        return _build_demo_baseline_data()
 
     lm_scores = (
         sent_df.copy()

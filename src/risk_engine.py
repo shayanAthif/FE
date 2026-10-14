@@ -387,6 +387,11 @@ class LinguisticRiskEngine:
             f"({len(scored_ids)} already scored, force={force_reprocess})."
         )
 
+        if not pending:
+            logger.info("Phase 2: All transcripts already scored.")
+            self.checkpoint.mark_completed(JOB_NAME, last_processed_id=None)
+            return self._stats
+
         # Load FinBERT once for the entire run
         logger.info("Loading FinBERT model …")
         load_finbert()
