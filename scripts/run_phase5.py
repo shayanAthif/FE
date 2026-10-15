@@ -63,7 +63,7 @@ OUTPUTS_DIR.mkdir(parents=True, exist_ok=True)
 
 # -- Verification stats --------------------------------------------------------
 
-def load_verification_stats() -> pd.DataFrame:
+def load_verification_stats(transcript_ids: Optional[List[str]] = None) -> pd.DataFrame:
     """Load verification status breakdown from DB."""
     from src.database import get_db_manager
     db_path = PROJECT_ROOT / "database" / "hidden_risk.db"
@@ -72,7 +72,14 @@ def load_verification_stats() -> pd.DataFrame:
         mgr.init_database()
     conn = mgr.get_connection()
     try:
-        df = pd.read_sql_query("""
+        where_clause = ""
+        params = []
+        if transcript_ids:
+            placeholders = ",".join("?" * len(transcript_ids))
+            where_clause = f"WHERE t.transcript_id IN ({placeholders})"
+            params = transcript_ids
+
+        df = pd.read_sql_query(f"""
             SELECT
                 v.status,
                 COUNT(*) AS n_claims,
@@ -82,9 +89,10 @@ def load_verification_stats() -> pd.DataFrame:
             FROM verification v
             JOIN claims c ON v.claim_id = c.claim_id
             JOIN transcripts t ON c.transcript_id = t.transcript_id
+            {where_clause}
             GROUP BY t.ticker, t.date, v.status
             ORDER BY t.date, t.ticker
-        """, conn)
+        """, conn, params=params)
     finally:
         conn.close()
     return df
@@ -141,9 +149,7 @@ def main() -> int:
 
     # -- 1. Load all transcript-level data ----------------------------------
     print("\n[1/7] Loading transcript-level data from database...")
-    df = load_baseline_data()
-    if args.limit:
-        df = df.head(args.limit)
+    df = load_baseline_data(limit=args.limit)
     df = apply_time_split(df)
 
     print(f"      Transcripts loaded: {len(df)}")
@@ -238,7 +244,7 @@ def main() -> int:
 
     # -- 6. Verification results CSV ---------------------------------------
     print("\n[6/7] Exporting verification_results.csv...")
-    verif_df = load_verification_stats()
+    verif_df = load_verification_stats(transcript_ids=df["transcript_id"].tolist() if args.limit else None)
     verif_df.to_csv(OUTPUTS_DIR / "verification_results.csv", index=False)
     verif_summary = load_verification_summary()
     print("      Verification summary:")

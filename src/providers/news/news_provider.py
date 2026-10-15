@@ -38,11 +38,12 @@ _TIER2_SOURCES = {
 class NewsProvider(BaseNewsProvider):
     """News provider with query building, RSS parsing, and disk caching."""
 
-    def __init__(self, cache_dir: Optional[Path] = None, timeout: float = 8.0):
+    def __init__(self, cache_dir: Optional[Path] = None, timeout: float = 3.0):
         self.cfg = get_config()
         self.cache_dir = cache_dir or _CACHE_DIR
         self.cache_dir.mkdir(parents=True, exist_ok=True)
-        self.timeout = timeout
+        self.timeout = min(timeout, 3.0)
+        self._mem_cache: dict[str, List[RetrievedEvidence]] = {}
         self.headers = {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
             "Accept": "application/rss+xml, application/xml, text/xml, */*",
@@ -65,16 +66,39 @@ class NewsProvider(BaseNewsProvider):
         Search for news articles related to ticker and claim topic in a date window.
         """
         search_term = f"{ticker} {query}".strip()
+        mem_key = f"{search_term}_{start_date}_{end_date}"
+
+        # 1. Check in-memory cache
+        if mem_key in self._mem_cache:
+            return self._mem_cache[mem_key][:limit]
+
         cache_file = self.cache_dir / self._cache_key(search_term, start_date, end_date)
 
-        # Check disk cache
+        # 2. Check disk cache
         if cache_file.exists():
             try:
                 with open(cache_file, "r", encoding="utf-8") as f:
                     cached_items = json.load(f)
-                    return [RetrievedEvidence(**item) for item in cached_items]
+                    res = [RetrievedEvidence(**item) for item in cached_items]
+                    self._mem_cache[mem_key] = res
+                    return res[:limit]
             except Exception:
                 pass
+
+        # 3. Check if live news retrieval is enabled
+        enable_live = getattr(self.cfg.evidence, "enable_live_news", False)
+        if not enable_live:
+            self._mem_cache[mem_key] = []
+            return []
+
+        # 4. Check temporal applicability: Google News RSS does not have historical news archives
+        try:
+            start_dt = datetime.strptime(start_date[:10], "%Y-%m-%d")
+            if (datetime.now() - start_dt).days > 90:
+                self._mem_cache[mem_key] = []
+                return []
+        except Exception:
+            pass
 
         encoded_q = urllib.parse.quote(search_term)
         rss_url = f"https://news.google.com/rss/search?q={encoded_q}&hl=en-US&gl=US&ceid=US:en"
@@ -145,6 +169,8 @@ class NewsProvider(BaseNewsProvider):
                 # Save cache
                 with open(cache_file, "w", encoding="utf-8") as f:
                     json.dump([vars(e) for e in results], f)
+
+            self._mem_cache[mem_key] = results
 
         except Exception as exc:
             logger.debug(f"News retrieval error for {ticker} '{query}': {exc}")

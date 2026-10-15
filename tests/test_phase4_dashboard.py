@@ -78,7 +78,8 @@ class TestDataLoader:
 
     def test_get_market_reaction_and_outcomes(self):
         transcripts = data_loader.get_transcripts_for_ticker("CLX")
-        tid = transcripts[0]["transcript_id"]
+        target = next((t for t in transcripts if data_loader.get_market_reaction(t["transcript_id"])), transcripts[0])
+        tid = target["transcript_id"]
         market = data_loader.get_market_reaction(tid)
         assert market is not None
         assert "return_1d" in market

@@ -63,6 +63,32 @@ def _ram_gb() -> float:
     return psutil.Process().memory_info().rss / (1024 ** 3)
 
 
+def parse_call_date(call_date: str) -> datetime:
+    """
+    Parse a call date string that may be 'YYYY-MM-DD', 'YYYY-MM-DD HH:MM:SS',
+    or ISO 8601 format into a datetime object.
+    """
+    if not call_date:
+        raise ValueError("call_date is empty or None")
+    s = str(call_date).strip()
+    # Try YYYY-MM-DD prefix first (e.g. '2025-05-15 16:30:00' -> '2025-05-15')
+    if len(s) >= 10:
+        try:
+            return datetime.strptime(s[:10], "%Y-%m-%d")
+        except ValueError:
+            pass
+    try:
+        return datetime.fromisoformat(s)
+    except ValueError:
+        pass
+    for fmt in ("%Y-%m-%d %H:%M:%S", "%Y/%m/%d", "%m/%d/%Y"):
+        try:
+            return datetime.strptime(s, fmt)
+        except ValueError:
+            pass
+    raise ValueError(f"Unrecognized call_date format: {call_date}")
+
+
 class Phase3Engine:
     """Orchestrates the claim extraction, evidence retrieval and fact verification pipeline."""
 
@@ -109,6 +135,22 @@ class Phase3Engine:
         """
         conn = sqlite3.connect(str(PROJECT_ROOT / "database" / "hidden_risk.db"))
         conn.row_factory = sqlite3.Row
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS phase3_completed (
+                transcript_id TEXT PRIMARY KEY,
+                claims_count INTEGER DEFAULT 0,
+                completed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        # Seed phase3_completed from existing claims if empty
+        cnt = conn.execute("SELECT COUNT(*) FROM phase3_completed").fetchone()[0]
+        if cnt == 0:
+            conn.execute("""
+                INSERT OR IGNORE INTO phase3_completed (transcript_id, claims_count)
+                SELECT transcript_id, COUNT(*) FROM claims GROUP BY transcript_id
+            """)
+            conn.commit()
+
         all_trans = conn.execute(
             "SELECT transcript_id, ticker, date, company_name FROM transcripts ORDER BY date"
         ).fetchall()
@@ -118,6 +160,13 @@ class Phase3Engine:
             pending = [dict(row) for row in all_trans]
         else:
             already_done = set(
+                r[0]
+                for r in conn.execute(
+                    "SELECT transcript_id FROM phase3_completed"
+                ).fetchall()
+            )
+            # Also include any transcripts already in claims as a safeguard
+            already_done.update(
                 r[0]
                 for r in conn.execute(
                     "SELECT DISTINCT transcript_id FROM claims"
@@ -142,6 +191,9 @@ class Phase3Engine:
         a clean result instead of accumulating duplicate rows.
         """
         with self.db.transaction() as conn:
+            conn.execute(
+                "DELETE FROM phase3_completed WHERE transcript_id = ?", (transcript_id,)
+            )
             conn.execute(
                 "DELETE FROM market_events WHERE transcript_id = ?", (transcript_id,)
             )
@@ -239,6 +291,11 @@ class Phase3Engine:
                      mr.abnormal_returns.get("5d")),
                 )
 
+            conn.execute(
+                "INSERT OR REPLACE INTO phase3_completed (transcript_id, claims_count) VALUES (?, ?)",
+                (transcript_id, len(normalized_claims)),
+            )
+
             conn.commit()
         finally:
             conn.close()
@@ -261,6 +318,11 @@ class Phase3Engine:
             # 1. Load sentences
             sentences = self._get_sentences(tid)
             if not sentences:
+                with sqlite3.connect(str(PROJECT_ROOT / "database" / "hidden_risk.db")) as conn:
+                    conn.execute(
+                        "INSERT OR REPLACE INTO phase3_completed (transcript_id, claims_count) VALUES (?, 0)",
+                        (tid,),
+                    )
                 return {"transcript_id": tid, "status": "skipped_no_sentences",
                         "claims": 0, "verified": 0, "errors": 0}
 
@@ -272,6 +334,11 @@ class Phase3Engine:
 
             if not raw_claims:
                 logger.debug(f"[{tid}] No claims extracted.")
+                with sqlite3.connect(str(PROJECT_ROOT / "database" / "hidden_risk.db")) as conn:
+                    conn.execute(
+                        "INSERT OR REPLACE INTO phase3_completed (transcript_id, claims_count) VALUES (?, 0)",
+                        (tid,),
+                    )
                 return {"transcript_id": tid, "status": "no_claims",
                         "claims": 0, "verified": 0, "errors": 0}
 
@@ -279,7 +346,8 @@ class Phase3Engine:
             normalized = [self.normalizer.normalize(rc, ticker=ticker) for rc in raw_claims]
 
             # 4. Build date windows
-            call_dt   = datetime.strptime(call_date, "%Y-%m-%d")
+            call_dt   = parse_call_date(call_date)
+            call_date_clean = call_dt.strftime("%Y-%m-%d")
             sec_start = (call_dt - timedelta(days=SEC_WINDOW_DAYS_BEFORE)).strftime("%Y-%m-%d")
             sec_end   = (call_dt + timedelta(days=SEC_WINDOW_DAYS_AFTER)).strftime("%Y-%m-%d")
             news_end  = (call_dt + timedelta(days=NEWS_WINDOW_DAYS_AFTER)).strftime("%Y-%m-%d")
@@ -291,27 +359,33 @@ class Phase3Engine:
             )
 
             # 6. Retrieve news + build evidence map per claim
+            news_query_cache: Dict[str, List] = {}
             evidence_map: Dict[str, List] = {}
             for c in normalized:
                 claim_ev = list(sec_evidence)  # all SEC filings apply to all claims
 
-                # News evidence keyed on claim type
+                # News evidence keyed on claim type (deduplicated per transcript)
                 news_query = f"{c.metric} {c.direction or ''}".strip()
-                news_ev = self.news_provider.search_news(
-                    ticker=ticker,
-                    company_name=None,
-                    query=news_query,
-                    start_date=call_date,
-                    end_date=news_end,
-                    limit=3,
-                )
+                if news_query not in news_query_cache:
+                    news_ev = self.news_provider.search_news(
+                        ticker=ticker,
+                        company_name=None,
+                        query=news_query,
+                        start_date=call_date_clean,
+                        end_date=news_end,
+                        limit=3,
+                    )
+                    news_query_cache[news_query] = news_ev
+                else:
+                    news_ev = news_query_cache[news_query]
+
                 claim_ev.extend(news_ev)
                 evidence_map[c.claim_id] = claim_ev
 
             # 7. Verify claims
             verifications: List[Dict] = []
             for c in normalized:
-                v = self.verifier.verify(c, evidence_map.get(c.claim_id, []), call_date)
+                v = self.verifier.verify(c, evidence_map.get(c.claim_id, []), call_date_clean)
                 verifications.append(v)
 
             # 8. Compute market reaction
@@ -423,23 +497,39 @@ def run_phase3(
         agg["peak_ram_gb"] = max(agg["peak_ram_gb"], ram)
 
         # Periodic checkpoint so progress is preserved on interruption
-        engine.ckpt.set_checkpoint(
-            JOB_NAME,
-            last_processed_id=transcript["transcript_id"],
-            status="IN_PROGRESS",
-        )
+        if i % 25 == 0 or i == total:
+            engine.ckpt.set_checkpoint(
+                JOB_NAME,
+                last_processed_id=transcript["transcript_id"],
+                status="IN_PROGRESS",
+            )
+            gc.collect()
 
-        if i % 10 == 0:
-            elapsed = round(time.time() - t0_total, 0)
+        if i % 10 == 0 or i == total:
+            elapsed = round(time.time() - t0_total, 1)
+            rate = round(i / max(0.1, time.time() - t0_total), 2)
             logger.info(
                 f"Progress: {i}/{total} | claims={agg['claims_extracted']} "
-                f"| errors={agg['errors']} | elapsed={elapsed}s | RAM={ram:.2f}GB"
+                f"| errors={agg['errors']} | elapsed={elapsed}s ({rate} trans/s) | RAM={ram:.2f}GB"
             )
 
-        gc.collect()
-
-    # Mark phase 3 checkpoint complete
-    engine.ckpt.mark_completed(JOB_NAME)
+    # Mark phase 3 checkpoint status
+    total_done = agg["transcripts_processed"] + agg["transcripts_skipped"]
+    if limit is None and agg["errors"] == 0 and total_done > 0:
+        engine.ckpt.mark_completed(JOB_NAME, last_processed_id=pending[-1]["transcript_id"])
+    elif total_done > 0:
+        engine.ckpt.set_checkpoint(
+            JOB_NAME,
+            last_processed_id=pending[-1]["transcript_id"],
+            status="IN_PROGRESS" if limit else ("COMPLETED" if agg["errors"] == 0 else "FAILED"),
+            error_message=(
+                f"Partial run (limit={limit}) with {agg['errors']} errors out of {total} transcripts."
+                if limit
+                else f"Completed with {agg['errors']} errors out of {total} transcripts."
+            ) if agg["errors"] else None,
+        )
+    else:
+        engine.ckpt.mark_failed(JOB_NAME, f"All {total} transcripts failed with errors.")
 
     agg["total_elapsed_s"] = round(time.time() - t0_total, 1)
     logger.info(

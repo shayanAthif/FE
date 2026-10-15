@@ -92,6 +92,7 @@ market:
 evidence:
   sec_rate_limit_per_sec: 10
   minimum_evidence_score: 0.50
+  enable_live_news: false
   authority_weights:
     tier_1: 1.0
     tier_2: 0.75

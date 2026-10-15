@@ -93,24 +93,13 @@ def sample_qa_for_annotation(
             SELECT
                 qp.qa_id,
                 qp.transcript_id,
+                qp.answer_segment_id,
                 t.ticker,
                 t.date,
                 qp.question_text,
-                qp.answer_text,
-                ts_q.evasiveness_score  AS auto_evasiveness_score,
-                ts_q.hedging_score      AS auto_hedging_score,
-                ts_q.hidden_risk_score  AS auto_hidden_risk_score
+                qp.answer_text
             FROM qa_pairs qp
             JOIN transcripts t ON qp.transcript_id = t.transcript_id
-            -- Get scores for the answer segment's first sentence
-            LEFT JOIN (
-                SELECT s.segment_id, AVG(rs.evasiveness_score) AS evasiveness_score,
-                       AVG(rs.hedging_score) AS hedging_score,
-                       AVG(rs.hidden_risk_score) AS hidden_risk_score
-                FROM sentences s
-                JOIN risk_scores rs ON s.sentence_id = rs.sentence_id
-                GROUP BY s.segment_id
-            ) ts_q ON ts_q.segment_id = qp.answer_segment_id
             WHERE length(qp.question_text) > 30
               AND length(qp.answer_text) > 50
         """
@@ -128,12 +117,42 @@ def sample_qa_for_annotation(
             params.append(time_cutoff)
 
         rows = conn.execute(query, params).fetchall()
-        records = [dict(r) for r in rows]
+        if not rows:
+            return []
 
         # Deterministic shuffle and sample
         rng = np.random.default_rng(seed)
-        indices = rng.permutation(len(records))[:n]
-        sampled = [records[i] for i in sorted(indices)]
+        indices = rng.permutation(len(rows))[:n]
+        sampled = [dict(rows[i]) for i in sorted(indices)]
+
+        # Fetch risk scores for the sampled answer segments using index
+        seg_ids = list({s["answer_segment_id"] for s in sampled if s.get("answer_segment_id")})
+        score_map = {}
+        if seg_ids:
+            chunk_size = 500
+            for i in range(0, len(seg_ids), chunk_size):
+                chunk = seg_ids[i : i + chunk_size]
+                placeholders = ",".join("?" * len(chunk))
+                sc_rows = conn.execute(
+                    f"""
+                    SELECT segment_id,
+                           AVG(evasiveness_score) AS evasiveness_score,
+                           AVG(hedging_score) AS hedging_score,
+                           AVG(hidden_risk_score) AS hidden_risk_score
+                    FROM risk_scores
+                    WHERE segment_id IN ({placeholders})
+                    GROUP BY segment_id
+                    """,
+                    chunk,
+                ).fetchall()
+                for r in sc_rows:
+                    score_map[r["segment_id"]] = r
+
+        for s in sampled:
+            sc = score_map.get(s.get("answer_segment_id"))
+            s["auto_evasiveness_score"] = float(sc["evasiveness_score"]) if sc and sc["evasiveness_score"] is not None else 0.0
+            s["auto_hedging_score"] = float(sc["hedging_score"]) if sc and sc["hedging_score"] is not None else 0.0
+            s["auto_hidden_risk_score"] = float(sc["hidden_risk_score"]) if sc and sc["hidden_risk_score"] is not None else 0.0
 
         return sampled
     finally:
